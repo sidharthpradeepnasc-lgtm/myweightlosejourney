@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fitness Tracker</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-adapter-date-fns/3.0.0/chartjs-adapter-date-fns.bundle.min.js"></script>
+<style>
+  :root{
+    --blue:#1a4099; --teal:#128554; --coral:#d85a14; --purple:#7c3c96;
+    --bg:#f4f5f7; --card:#ffffff; --border:#e0e2e6; --text:#222; --muted:#6b6f76;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html{-webkit-text-size-adjust:100%;}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);margin:0;padding:0 0 60px;}
+  header{padding:16px 16px 8px;}
+  h1{font-size:20px;margin:0 0 2px;}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:12px;}
+  nav{display:flex;gap:4px;padding:0 8px;border-bottom:1px solid var(--border);overflow-x:auto;-webkit-overflow-scrolling:touch;white-space:nowrap;scrollbar-width:none;}
+  nav::-webkit-scrollbar{display:none;}
+  nav button{background:none;border:none;padding:12px 12px;font-size:14px;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;flex:0 0 auto;-webkit-appearance:none;appearance:none;}
+  nav button.active{color:var(--blue);border-bottom-color:var(--blue);font-weight:600;}
+  main{max-width:900px;margin:0 auto;padding:16px;}
+  .tab{display:none;}
+  .tab.active{display:block;}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 14px;margin-bottom:14px;}
+  .card h2{font-size:16px;margin:0 0 10px;}
+  .row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;}
+  label{font-size:12px;color:var(--muted);display:block;margin-bottom:4px;}
+  input,select{padding:10px 10px;border:1px solid var(--border);border-radius:6px;font-size:16px;width:100%;-webkit-appearance:none;appearance:none;background:#fff;}
+  input[type=checkbox]{-webkit-appearance:checkbox;appearance:checkbox;width:18px;height:18px;flex:0 0 auto;}
+  .field{flex:1;min-width:130px;}
+  button.primary{background:var(--blue);color:#fff;border:none;padding:12px 16px;border-radius:6px;cursor:pointer;font-size:15px;width:100%;-webkit-appearance:none;appearance:none;}
+  button.primary:hover{opacity:0.9;}
+  button.ghost{background:none;border:1px solid var(--border);padding:8px 12px;border-radius:6px;cursor:pointer;font-size:12px;color:var(--muted);}
+  .day-header{padding:10px 12px;border-radius:8px 8px 0 0;color:#fff;font-weight:600;font-size:14px;}
+  .push1{background:var(--blue);} .pull1{background:var(--teal);} .push2{background:var(--coral);} .pull2{background:var(--purple);} .customday{background:#5f5e5a;}
+  .exlist{border:1px solid var(--border);border-top:none;border-radius:0 0 8px 8px;padding:10px 12px;background:#fafbfc;}
+  .exlist label{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--text);margin-bottom:10px;cursor:pointer;padding:4px 0;}
+  .exlist input[type=checkbox]{width:auto;}
+  .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  table{width:100%;border-collapse:collapse;font-size:13px;min-width:420px;}
+  th,td{text-align:left;padding:8px 8px;border-bottom:1px solid var(--border);}
+  th{color:var(--muted);font-weight:600;font-size:12px;}
+  .stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px;}
+  .stat{background:#f1f3f6;border-radius:8px;padding:10px 12px;}
+  .stat .num{font-size:18px;font-weight:600;word-break:break-word;}
+  .stat .lbl{font-size:11px;color:var(--muted);}
+  .del{color:#b23c3c;cursor:pointer;font-size:12px;background:none;border:none;}
+  .empty{color:var(--muted);font-size:13px;padding:8px 0;}
+  .chart-wrap{position:relative;height:280px;}
+  .badge{display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;background:#eef1f5;color:var(--muted);margin-left:6px;}
+  @media (max-width: 480px){
+    .chart-wrap{height:240px;}
+    .field{min-width:100%;}
+    .row{gap:8px;}
+    h1{font-size:18px;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Fitness Tracker</h1>
+  <div class="sub">Workouts, nutrition, and weight — all in one place</div>
+  <div id="storageWarning" style="display:none;background:#fdecea;color:#b23c3c;border:1px solid #f3c1bd;border-radius:8px;padding:10px 12px;font-size:13px;margin-bottom:8px;">
+    Your browser is blocking storage for this page (this can happen in Private/Incognito mode), so entries won't be saved between visits. Try opening this file in normal browsing mode.
+  </div>
+</header>
+
+<nav>
+  <button class="tabBtn active" data-tab="workout">Workout</button>
+  <button class="tabBtn" data-tab="nutrition">Nutrition</button>
+  <button class="tabBtn" data-tab="weight">Weight &amp; progress</button>
+  <button class="tabBtn" data-tab="settings">Settings</button>
+</nav>
+
+<main>
+
+  <!-- WORKOUT TAB -->
+  <div class="tab active" id="tab-workout">
+    <div class="card">
+      <h2>Log today's workout</h2>
+      <div class="row">
+        <div class="field">
+          <label>Date</label>
+          <input type="date" id="wDate">
+        </div>
+        <div class="field" style="flex:2">
+          <label>Day type</label>
+          <select id="wDayType">
+            <option value="push1">Upper body push</option>
+            <option value="pull1">Upper body pull</option>
+            <option value="push2">Lower body push</option>
+            <option value="pull2">Lower body pull</option>
+          </select>
+        </div>
+      </div>
+      <div id="exContainer"></div>
+      <div class="row" style="margin-top:10px">
+        <button class="primary" id="saveWorkoutBtn">Save workout</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Recent workouts</h2>
+      <div id="workoutHistory"><div class="empty">No workouts logged yet.</div></div>
+    </div>
+  </div>
+
+  <!-- NUTRITION TAB -->
+  <div class="tab" id="tab-nutrition">
+    <div class="card">
+      <h2>Log calories &amp; macros</h2>
+      <div class="row">
+        <div class="field"><label>Date</label><input type="date" id="nDate"></div>
+        <div class="field"><label>Calories (kcal)</label><input type="number" id="nCal" min="0"></div>
+        <div class="field"><label>Protein (g)</label><input type="number" id="nProtein" min="0"></div>
+        <div class="field"><label>Carbs (g)</label><input type="number" id="nCarbs" min="0"></div>
+        <div class="field"><label>Fat (g)</label><input type="number" id="nFat" min="0"></div>
+      </div>
+      <button class="primary" id="saveNutritionBtn">Add entry</button>
+      <div id="nErr" style="color:#b23c3c;font-size:12px;margin-top:6px;"></div>
+    </div>
+
+    <div class="card">
+      <h2>Last 7 days average</h2>
+      <div class="stat-grid" id="nutritionStats"></div>
+    </div>
+
+    <div class="card">
+      <h2>Log</h2>
+      <div class="table-scroll"><table id="nutritionTable">
+        <thead><tr><th>Date</th><th>Kcal</th><th>Protein</th><th>Carbs</th><th>Fat</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+      <div class="empty" id="nutritionEmpty">No entries yet.</div>
+    </div>
+  </div>
+
+  <!-- WEIGHT TAB -->
+  <div class="tab" id="tab-weight">
+    <div class="card">
+      <h2>Log weight</h2>
+      <div class="row">
+        <div class="field"><label>Date</label><input type="date" id="wgtDate"></div>
+        <div class="field"><label>Weight (kg)</label><input type="number" step="0.1" id="wgtVal" min="0"></div>
+      </div>
+      <button class="primary" id="saveWeightBtn">Add entry</button>
+      <div id="wErr" style="color:#b23c3c;font-size:12px;margin-top:6px;"></div>
+    </div>
+
+    <div class="card">
+      <h2>Weight trend &amp; projection</h2>
+      <div class="stat-grid" id="weightStats"></div>
+      <div class="chart-wrap"><canvas id="weightChart"></canvas></div>
+      <div style="font-size:12px;color:var(--muted);margin-top:8px;">
+        The dashed line is a projection: it uses your current weight, your average logged calorie intake, and how often you've logged workouts, to estimate the path toward your goal. It recalculates every time you add an entry — the more consistently you log, the more accurate it gets.
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Log</h2>
+      <div class="table-scroll"><table id="weightTable">
+        <thead><tr><th>Date</th><th>Weight (kg)</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+      <div class="empty" id="weightEmpty">No entries yet.</div>
+    </div>
+  </div>
+
+  <!-- SETTINGS TAB -->
+  <div class="tab" id="tab-settings">
+    <div class="card">
+      <h2>Profile (used for calorie &amp; projection calculations)</h2>
+      <div class="row">
+        <div class="field"><label>Height (cm)</label><input type="number" id="pHeight"></div>
+        <div class="field"><label>Age</label><input type="number" id="pAge"></div>
+        <div class="field">
+          <label>Sex</label>
+          <select id="pSex"><option value="female">Female</option><option value="male">Male</option></select>
+        </div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Starting weight (kg)</label><input type="number" step="0.1" id="pStart"></div>
+        <div class="field"><label>Goal weight (kg)</label><input type="number" step="0.1" id="pGoal"></div>
+      </div>
+      <button class="primary" id="saveProfileBtn">Save profile</button>
+      <div style="font-size:12px;color:var(--muted);margin-top:10px;">Defaults are pre-filled based on the plan discussed earlier — adjust anytime.</div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+const EXERCISES = {
+  push1: {label:"Upper body push", cls:"push1", items:[
+    "Machine Chest Press (3x12)","Incline Chest Press Machine (2x12)","Shoulder Press Machine (3x12)",
+    "Lateral Raise Machine (2x15)","Triceps Press Machine (2x15)",
+    "Core: Plank / Dead Bug / Bird Dog","Cardio: 15-20 min incline walk or bike"
+  ]},
+  pull1: {label:"Upper body pull", cls:"pull1", items:[
+    "Lat Pulldown Machine (3x12)","Seated Row Machine (3x12)","Chest-Supported Row Machine (2x12)",
+    "Biceps Curl Machine (2x15)","Shrug Machine (2x15)",
+    "Core: Side Plank / Bicycle Crunches / Superman","Cardio: 15-20 min elliptical or bike"
+  ]},
+  push2: {label:"Lower body push", cls:"push2", items:[
+    "Leg Press Machine (3x12)","Hack Squat Machine (2x12)","Leg Extension Machine (2x15)",
+    "Seated Calf Raise Machine (3x15)",
+    "Core: Reverse Crunches / Hollow Body Hold / Bird Dog","Cardio: 15-20 min incline walk"
+  ]},
+  pull2: {label:"Lower body pull", cls:"pull2", items:[
+    "Seated Leg Curl Machine (3x12)","Hip Thrust Machine (3x12)","Glute Kickback Machine (2x15)",
+    "Standing Calf Raise Machine (2x15)",
+    "Core: Plank / Russian Twists / Dead Bug","Cardio: 15-20 min bike or elliptical"
+  ]}
+};
+
+let profile = {height:153, age:29, sex:"female", start:100, goal:66};
+let workouts = [];
+let nutrition = [];
+let weights = [];
+let weightChart = null;
+
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+
+const STORAGE_PREFIX = 'fitnessTracker:';
+let storageBlocked = false;
+
+function lsGet(key){
+  try { return localStorage.getItem(STORAGE_PREFIX + key); }
+  catch(e){ storageBlocked = true; return null; }
+}
+function lsSet(key, value){
+  try { localStorage.setItem(STORAGE_PREFIX + key, value); return true; }
+  catch(e){ storageBlocked = true; return false; }
+}
+
+function showStorageWarning(){
+  const el = document.getElementById('storageWarning');
+  if (el) el.style.display = 'block';
+}
+
+async function loadAll(){
+  try {
+    const p = lsGet('profile');
+    const w = lsGet('workout-log');
+    const n = lsGet('nutrition-log');
+    const wt = lsGet('weight-log');
+    if (p) profile = JSON.parse(p);
+    if (w) workouts = JSON.parse(w);
+    if (n) nutrition = JSON.parse(n);
+    if (wt) weights = JSON.parse(wt);
+  } catch(e){ console.error("load error", e); }
+  if (storageBlocked) showStorageWarning();
+  applyProfileToForm();
+  renderExerciseList();
+  renderWorkoutHistory();
+  renderNutrition();
+  renderWeight();
+}
+
+async function saveProfile(){
+  const ok = lsSet('profile', JSON.stringify(profile));
+  if (!ok) showStorageWarning();
+}
+async function saveWorkouts(){
+  const ok = lsSet('workout-log', JSON.stringify(workouts));
+  if (!ok) showStorageWarning();
+}
+async function saveNutrition(){
+  const ok = lsSet('nutrition-log', JSON.stringify(nutrition));
+  if (!ok) showStorageWarning();
+}
+async function saveWeights(){
+  const ok = lsSet('weight-log', JSON.stringify(weights));
+  if (!ok) showStorageWarning();
+}
+
+function applyProfileToForm(){
+  document.getElementById('pHeight').value = profile.height;
+  document.getElementById('pAge').value = profile.age;
+  document.getElementById('pSex').value = profile.sex;
+  document.getElementById('pStart').value = profile.start;
+  document.getElementById('pGoal').value = profile.goal;
+}
+
+function renderExerciseList(){
+  const dayType = document.getElementById('wDayType').value;
+  const day = EXERCISES[dayType];
+  const container = document.getElementById('exContainer');
+  container.innerHTML = `<div class="day-header ${day.cls}">${day.label}</div>
+    <div class="exlist">${day.items.map((it,i)=>`
+      <label><input type="checkbox" data-idx="${i}" class="exCheck"> ${it}</label>
+    `).join('')}</div>`;
+}
+
+document.getElementById('wDayType').addEventListener('change', renderExerciseList);
+
+
+document.getElementById('saveWorkoutBtn').addEventListener('click', async ()=>{
+  const date = document.getElementById('wDate').value || todayStr();
+  const dayType = document.getElementById('wDayType').value;
+  const checks = Array.from(document.querySelectorAll('.exCheck'));
+  const total = checks.length;
+  const done = checks.filter(c=>c.checked).length;
+  const entry = {id: Date.now(), date, dayType, done, total, completed: done>0};
+  workouts = workouts.filter(w => !(w.date===date && w.dayType===dayType));
+  workouts.push(entry);
+  workouts.sort((a,b)=>a.date.localeCompare(b.date));
+  await saveWorkouts();
+  renderWorkoutHistory();
+  renderWeight();
+});
+
+function renderWorkoutHistory(){
+  const box = document.getElementById('workoutHistory');
+  if (!workouts.length){ box.innerHTML = '<div class="empty">No workouts logged yet.</div>'; return; }
+  const recent = [...workouts].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,10);
+  box.innerHTML = `<div class="table-scroll"><table><thead><tr><th>Date</th><th>Day</th><th>Completed</th><th></th></tr></thead><tbody>
+    ${recent.map(w=>`<tr>
+      <td>${w.date}</td>
+      <td>${EXERCISES[w.dayType].label}</td>
+      <td>${w.done}/${w.total}</td>
+      <td><button class="del" data-id="${w.id}">remove</button></td>
+    </tr>`).join('')}
+  </tbody></table></div>`;
+  box.querySelectorAll('.del').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      workouts = workouts.filter(w=>w.id !== Number(btn.dataset.id));
+      await saveWorkouts();
+      renderWorkoutHistory();
+      renderWeight();
+    });
+  });
+}
+
+document.getElementById('saveNutritionBtn').addEventListener('click', async ()=>{
+  const date = document.getElementById('nDate').value || todayStr();
+  const cal = Number(document.getElementById('nCal').value);
+  const protein = Number(document.getElementById('nProtein').value) || 0;
+  const carbs = Number(document.getElementById('nCarbs').value) || 0;
+  const fat = Number(document.getElementById('nFat').value) || 0;
+  const errBox = document.getElementById('nErr');
+  if (!document.getElementById('nCal').value || cal <= 0){
+    errBox.textContent = "Enter calories for the day first.";
+    return;
+  }
+  errBox.textContent = "";
+  nutrition = nutrition.filter(n => n.date !== date);
+  nutrition.push({id: Date.now(), date, cal, protein, carbs, fat});
+  nutrition.sort((a,b)=>a.date.localeCompare(b.date));
+  await saveNutrition();
+  ['nCal','nProtein','nCarbs','nFat'].forEach(id=>document.getElementById(id).value='');
+  renderNutrition();
+  renderWeight();
+});
+
+function renderNutrition(){
+  const tbody = document.querySelector('#nutritionTable tbody');
+  const empty = document.getElementById('nutritionEmpty');
+  const sorted = [...nutrition].sort((a,b)=>b.date.localeCompare(a.date));
+  if (!sorted.length){ tbody.innerHTML=''; empty.style.display='block'; }
+  else {
+    empty.style.display='none';
+    tbody.innerHTML = sorted.map(n=>`<tr>
+      <td>${n.date}</td><td>${n.cal}</td><td>${n.protein}g</td><td>${n.carbs}g</td><td>${n.fat}g</td>
+      <td><button class="del" data-id="${n.id}">remove</button></td>
+    </tr>`).join('');
+    tbody.querySelectorAll('.del').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        nutrition = nutrition.filter(n=>n.id !== Number(btn.dataset.id));
+        await saveNutrition();
+        renderNutrition();
+        renderWeight();
+      });
+    });
+  }
+  const last7 = [...nutrition].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,7);
+  const avg = (key)=> last7.length ? Math.round(last7.reduce((s,x)=>s+x[key],0)/last7.length) : 0;
+  document.getElementById('nutritionStats').innerHTML = `
+    <div class="stat"><div class="num">${avg('cal')}</div><div class="lbl">avg kcal/day</div></div>
+    <div class="stat"><div class="num">${avg('protein')}g</div><div class="lbl">avg protein</div></div>
+    <div class="stat"><div class="num">${avg('carbs')}g</div><div class="lbl">avg carbs</div></div>
+    <div class="stat"><div class="num">${avg('fat')}g</div><div class="lbl">avg fat</div></div>
+  `;
+}
+
+document.getElementById('saveWeightBtn').addEventListener('click', async ()=>{
+  const date = document.getElementById('wgtDate').value || todayStr();
+  const val = Number(document.getElementById('wgtVal').value);
+  const errBox = document.getElementById('wErr');
+  if (!document.getElementById('wgtVal').value || val <= 0){
+    errBox.textContent = "Enter a weight value first.";
+    return;
+  }
+  errBox.textContent = "";
+  weights = weights.filter(w => w.date !== date);
+  weights.push({id: Date.now(), date, val});
+  weights.sort((a,b)=>a.date.localeCompare(b.date));
+  await saveWeights();
+  document.getElementById('wgtVal').value = '';
+  renderWeight();
+});
+
+function bmr(weightKg){
+  const s = profile.sex === 'male' ? 5 : -161;
+  return 10*weightKg + 6.25*profile.height - 5*profile.age + s;
+}
+// sedentary-light baseline maintenance, plus a fixed bump per logged workout day
+function maintenance(weightKg, workoutsPerWeek){
+  return bmr(weightKg) * 1.2 + (workoutsPerWeek/7)*350;
+}
+
+function computeProjection(){
+  const sortedW = [...weights].sort((a,b)=>a.date.localeCompare(b.date));
+  const currentWeight = sortedW.length ? sortedW[sortedW.length-1].val : profile.start;
+  const todayD = new Date();
+
+  // average calorie intake: last 14 nutrition entries, else default 1400
+  const recentNutrition = [...nutrition].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,14);
+  const avgCal = recentNutrition.length
+    ? recentNutrition.reduce((s,x)=>s+x.cal,0)/recentNutrition.length
+    : 1400;
+
+  // workouts per week: count logged workouts in last 14 days /2, else default 4
+  const cutoff = new Date(todayD); cutoff.setDate(cutoff.getDate()-14);
+  const recentWorkouts = workouts.filter(w => new Date(w.date) >= cutoff && w.completed);
+  const workoutsPerWeek = recentWorkouts.length ? recentWorkouts.length/2 : 4;
+
+  const points = [];
+  let simWeight = currentWeight;
+  let d = new Date(todayD);
+  points.push({date: d.toISOString().slice(0,10), val: simWeight});
+  const maxDays = 700;
+  for (let i=1; i<=maxDays; i++){
+    const maint = maintenance(simWeight, workoutsPerWeek);
+    const deficit = maint - avgCal;
+    if (deficit <= 50){ break; } // stalled — not enough deficit to keep projecting meaningfully
+    simWeight -= deficit/7700;
+    if (simWeight <= profile.goal){ simWeight = profile.goal; d.setDate(d.getDate()+1); points.push({date:d.toISOString().slice(0,10), val:simWeight}); break; }
+    if (i % 7 === 0){
+      d.setDate(d.getDate()+7);
+      points.push({date: d.toISOString().slice(0,10), val: Math.round(simWeight*10)/10});
+    } else {
+      d.setDate(d.getDate()+1);
+    }
+  }
+  return {points, currentWeight, avgCal, workoutsPerWeek};
+}
+
+function renderWeight(){
+  const tbody = document.querySelector('#weightTable tbody');
+  const empty = document.getElementById('weightEmpty');
+  const sorted = [...weights].sort((a,b)=>b.date.localeCompare(a.date));
+  if (!sorted.length){ tbody.innerHTML=''; empty.style.display='block'; }
+  else {
+    empty.style.display='none';
+    tbody.innerHTML = sorted.map(w=>`<tr>
+      <td>${w.date}</td><td>${w.val} kg</td>
+      <td><button class="del" data-id="${w.id}">remove</button></td>
+    </tr>`).join('');
+    tbody.querySelectorAll('.del').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        weights = weights.filter(w=>w.id !== Number(btn.dataset.id));
+        await saveWeights();
+        renderWeight();
+      });
+    });
+  }
+
+  const proj = computeProjection();
+  const remaining = Math.max(0, Math.round((proj.currentWeight - profile.goal)*10)/10);
+  const goalDate = proj.points.length ? proj.points[proj.points.length-1].date : '—';
+  document.getElementById('weightStats').innerHTML = `
+    <div class="stat"><div class="num">${proj.currentWeight} kg</div><div class="lbl">current weight</div></div>
+    <div class="stat"><div class="num">${remaining} kg</div><div class="lbl">left to goal</div></div>
+    <div class="stat"><div class="num">${Math.round(proj.avgCal)}</div><div class="lbl">avg kcal used</div></div>
+    <div class="stat"><div class="num">${goalDate}</div><div class="lbl">estimated goal date</div></div>
+  `;
+
+  const actualPoints = [...weights].sort((a,b)=>a.date.localeCompare(b.date)).map(w=>({x:w.date, y:w.val}));
+  const projPoints = proj.points.map(p=>({x:p.date, y: Math.round(p.val*10)/10}));
+
+  const ctx = document.getElementById('weightChart').getContext('2d');
+  if (weightChart) weightChart.destroy();
+  weightChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      datasets: [
+        {
+          label: 'Logged weight',
+          data: actualPoints,
+          borderColor: '#1a4099',
+          backgroundColor: '#1a4099',
+          spanGaps: true,
+          tension: 0.15
+        },
+        {
+          label: 'Projected',
+          data: projPoints,
+          borderColor: '#d85a14',
+          borderDash: [6,4],
+          backgroundColor: 'transparent',
+          tension: 0.15
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: { type: 'time', time: { unit: 'month' }, title: {display:true, text:'Date'} },
+        y: { title: {display:true, text:'Weight (kg)'} }
+      },
+      plugins: { legend: { position: 'bottom' } }
+    }
+  });
+}
+
+
+document.getElementById('saveProfileBtn').addEventListener('click', async ()=>{
+  profile = {
+    height: Number(document.getElementById('pHeight').value) || profile.height,
+    age: Number(document.getElementById('pAge').value) || profile.age,
+    sex: document.getElementById('pSex').value,
+    start: Number(document.getElementById('pStart').value) || profile.start,
+    goal: Number(document.getElementById('pGoal').value) || profile.goal
+  };
+  await saveProfile();
+  renderWeight();
+});
+
+document.querySelectorAll('.tabBtn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tabBtn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+    if (btn.dataset.tab === 'weight') renderWeight();
+  });
+});
+
+document.getElementById('wDate').value = todayStr();
+document.getElementById('nDate').value = todayStr();
+document.getElementById('wgtDate').value = todayStr();
+
+loadAll();
+</script>
+
+</body>
+</html>
